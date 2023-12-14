@@ -1,6 +1,5 @@
 import sys
 
-# LISTENER = True
 contacts_book = {}
 
 MESSAGES = {
@@ -8,42 +7,115 @@ MESSAGES = {
     "good_bye": "Good bye!",
     "close": "Good bye!",
     "exit": "Good bye!",
-    "add": "Your contact has been saved",
+    "add": "Your contact has been added",
     "change": "Your contact has been changed",
-    "phone": "It's your phone number",
-    "show_all": "These are all contacts"
+    "phone": "It's your phone number: ",
+    "show_all": "These are all contacts:"
 }
-
-COMMANDS = {
-    "good_bye": MESSAGES["good_bye"],
-    "close": MESSAGES["close"],
-    "exit": MESSAGES["exit"],
-    "hello": MESSAGES["hello"],
-    "add": MESSAGES["add"],
-    "change": MESSAGES["change"],
-    "phone": MESSAGES["phone"],
-    "show_all": MESSAGES["show_all"]
-}
-
 EXIT_COMMANDS = ["good_bye", "close", "exit"]
+WARNING_MESSAGES = {
+    "correct_command": "Enter correct command",
+    "name": "Enter user name",
+    "name_phone": "Give me name and phone please",
+    "missing_name": "This name is missing in contact book",
+    "contacts_book_empty": "Contacts book is empty yet."
+}
+RED = "\033[91m"
+GREEN = "\033[92m"
+BOLD = '\033[1m'
+RESET = "\033[0m"
+
+
+def message_notice(notice, color = None):
+    color = color or GREEN
+    print(f"{color} {notice} {RESET}")
+    
+
+def message_warging(warning):
+    print(f"{RED} {warning} {RESET}")
+
+
+def input_error(func):
+    def wrapper(user_input):
+        try:
+            res = func(user_input)
+            return res
+        except KeyError as err:
+            message_warging(f"Error: {err}")
+            return False
+        except ValueError as err:
+            message_warging(f"Error: {err}")
+            return False
+        except IndexError as err:
+            message_warging(f"Error: {err}")
+            return False
+    return wrapper
+
 
 def message(mes):
-    print(mes)
+    message_notice(MESSAGES[mes[0]])
+
 
 def exit(mes):
-    print(mes)
-    # LISTENER = False
+    message_notice(MESSAGES[mes[0]])
     return False
+
+
+@input_error
+def add(com):
+    if len(com) < 3:
+        raise ValueError(WARNING_MESSAGES["name_phone"])      
+    contacts_book[com[1]] = com[2]
+    message_notice(MESSAGES[com[0]])
+
+
+def contacts_book_fullness():
+    if len(contacts_book) == 0:
+        message_warging(WARNING_MESSAGES["contacts_book_empty"])
+        return 0    
+
+
+def presence_name(com):
+    if contacts_book.get(com[1]) == None:
+        message_warging(WARNING_MESSAGES["missing_name"])
+    else: return True
+
+
+def show_all(com):
+    if contacts_book_fullness() == 0: return
+    message_notice(MESSAGES[com[0]])
+    for key, val in contacts_book.items():
+        message_notice(f"Name: {key.capitalize()} | phone: {val}", BOLD)
+
+
+@input_error
+def phone(com):
+    if contacts_book_fullness() == 0: return
+    if len(com) < 2:
+        raise ValueError(WARNING_MESSAGES["name"])
+    if presence_name(com): 
+        message_notice(f"{MESSAGES[com[0]]}{contacts_book[com[1]]}", BOLD)
+
+
+@input_error
+def change(com):
+    if contacts_book_fullness() == 0: return
+    if len(com) < 3:
+        raise ValueError(WARNING_MESSAGES["name_phone"])
+    if presence_name(com):
+        contacts_book[com[1]] = com[2]
+        message_notice(MESSAGES[com[0]])
+
 
 command_handlers = {
     "good_bye": exit,
     "close": exit,
     "exit": exit,
     "hello": message,
-    "add": "",
-    "change": "",
-    "phone": "",
-    "show all": ""
+    "add": add,
+    "change": change,
+    "phone": phone,
+    "show_all": show_all
 }
 
 
@@ -52,60 +124,36 @@ def get_handler_command(com):
 
 
 def command_handler(com):
-    handler = get_handler_command(com)
-    handler(MESSAGES[com])
+    handler = get_handler_command(com[0])
+    handler(com)
 
 
+@input_error
 def parsing(user_input):
     commands = user_input.split(" ")
-    # print(commands)
-    # print(commands[0])
     if commands[0] in command_handlers:
-        return commands[0]
-    elif commands[0] == "good":
+        return commands
+    elif commands[0] == "good" or commands[0] == "show":
         if len(commands) > 1: 
-            command = commands[0] + "_" + commands[1]
-            return command 
-        # else:
-        #     print ("no")
+            commands[0] = commands[0] + "_" + commands[1]
+            return parsing(commands[0])
+        else :
+            raise ValueError(WARNING_MESSAGES["correct_command"])
     else:
-        return "Err"
+        raise ValueError(WARNING_MESSAGES["correct_command"])
 
-
-def question_answer():
-    pass
 
 def main():
     listener = True
     while listener == True:
         user_input = input("Input command >>> ")
-        # print(user_input)
         command = parsing(user_input.lower())
-        if command in EXIT_COMMANDS:
-            listener = command_handler(command)
-        else:
-        # if command != "Err":
-            print(f'command: {command}')
-            command_handler(command)
-        # else:
-        #     listener = False
-        
+        if command != False:
+            if command[0] in EXIT_COMMANDS:
+                listener = command_handler(command)
+            else:
+                command_handler(command)
+
 
 if __name__ == "__main__":
     main()
-
-
-
-#### Бот повинен перебувати в безкінечному циклі, чекаючи команди користувача.
-#### Бот завершує свою роботу, якщо зустрічає слова: .
-#### Бот не чутливий до регістру введених команд.
-# Бот приймає команди:
-## "hello", відповідає у консоль "How can I help you?"
-## "add ...". За цією командою бот зберігає у пам"яті (у словнику наприклад) новий контакт. Замість ... користувач вводить ім"я та номер телефону, обов"язково через пробіл.
-## "change ..." За цією командою бот зберігає в пам"яті новий номер телефону існуючого контакту. Замість ... користувач вводить ім"я та номер телефону, обов"язково через пробіл.
-## "phone ...." За цією командою бот виводить у консоль номер телефону для зазначеного контакту. Замість ... користувач вводить ім"я контакту, чий номер треба показати.
-## "show all". За цією командою бот виводить всі збереженні контакти з номерами телефонів у консоль.
-## "good bye", "close", "exit" по будь-якій з цих команд бот завершує свою роботу після того, як виведе у консоль "Good bye!".
-# Всі помилки введення користувача повинні оброблятися за допомогою декоратора input_error. Цей декоратор відповідає за повернення користувачеві повідомлень виду "Enter user name", "Give me name and phone please" і т.п. Декоратор input_error повинен обробляти винятки, що виникають у функціях-handler (KeyError, ValueError, IndexError) та повертати відповідну відповідь користувачеві.
-# Логіка команд реалізована в окремих функціях і ці функції приймають на вхід один або декілька рядків та повертають рядок.
-# Вся логіка взаємодії з користувачем реалізована у функції main, всі print та input відбуваються тільки там.    
